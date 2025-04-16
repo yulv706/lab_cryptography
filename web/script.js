@@ -10,23 +10,6 @@ const algorithmDescriptions = {
     dh: "D-H 密钥交换：协商共享密钥，附带 RSA 签名验证，输出包含密钥和签名。"
 };
 
-// Base64 编码和解码
-function toBase64(str) {
-    try {
-        return btoa(str);
-    } catch (e) {
-        return btoa(String.fromCharCode.apply(null, new Uint8Array(str.split('').map(c => c.charCodeAt(0)))));
-    }
-}
-
-function fromBase64(str) {
-    try {
-        return atob(str);
-    } catch (e) {
-        return '';
-    }
-}
-
 // 动态更新表单
 const algorithmSelect = document.getElementById('algorithm');
 const description = document.getElementById('algorithm-description');
@@ -36,11 +19,23 @@ const signatureInput = document.getElementById('signature-input');
 const dhRoleGroup = document.getElementById('dh-role-group');
 const actionPrimary = document.getElementById('action-primary');
 const actionSecondary = document.getElementById('action-secondary');
+const primarySpinner = document.getElementById('primary-spinner');
+const secondarySpinner = document.getElementById('secondary-spinner');
 const result = document.getElementById('result');
+
+// 主题切换
+const themeToggle = document.getElementById('theme-toggle');
+themeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    themeToggle.innerHTML = document.body.classList.contains('dark-mode')
+        ? '<i class="fas fa-sun"></i>'
+        : '<i class="fas fa-moon"></i>';
+});
 
 algorithmSelect.addEventListener('change', function() {
     const algorithm = this.value;
     result.innerHTML = '';
+    result.classList.add('d-none');
     inputText.value = '';
     signatureInput.value = '';
     description.textContent = algorithm ? algorithmDescriptions[algorithm] : '';
@@ -50,7 +45,7 @@ algorithmSelect.addEventListener('change', function() {
     inputText.placeholder = algorithm === 'sha1' || algorithm === 'signature' || algorithm === 'dh'
         ? '输入消息'
         : algorithm
-            ? '输入明文或密文'
+            ? '输入明文或Base64编码的密文'
             : '输入文本';
 
     if (algorithm === 'sha1') {
@@ -76,24 +71,12 @@ algorithmSelect.addEventListener('change', function() {
 // 发送 API 请求
 function sendRequest(url, data, isBinaryInput = false, isBinaryOutput = false) {
     console.log(`Sending request to ${url} with data:`, data);
-    // 对于解密或验证，输入可能是 Base64 编码的密文或签名
-    if (isBinaryInput && data.ciphertext) {
-        try {
-            data.ciphertext = fromBase64(data.ciphertext);
-        } catch (e) {
-            result.innerHTML = `<div class="alert alert-danger">错误: 无效的 Base64 密文</div>`;
-            return;
-        }
-    } else if (isBinaryInput && data.signature) {
-        try {
-            data.signature = fromBase64(data.signature);
-        } catch (e) {
-            result.innerHTML = `<div class="alert alert-danger">错误: 无效的 Base64 签名</div>`;
-            return;
-        }
-    }
+    primarySpinner.classList.remove('d-none');
+    secondarySpinner.classList.remove('d-none');
+    actionPrimary.disabled = true;
+    actionSecondary.disabled = true;
 
-    fetch(`http://127.0.0.1:8080${url}`, {
+    fetch(`http://192.168.3.6:8080${url}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -111,19 +94,29 @@ function sendRequest(url, data, isBinaryInput = false, isBinaryOutput = false) {
         console.log('Received data:', data);
         result.innerHTML = '<h6 class="mb-3">结果:</h6>';
         for (const [key, value] of Object.entries(data)) {
-            // 后端已返回 Base64 编码的输出，直接显示
             const displayValue = value;
             result.innerHTML += `
                 <div class="mb-2">
                     <strong class="text-capitalize">${key.replace('_', ' ')}:</strong>
-                    <code class="d-block p-2 bg-white rounded">${displayValue}</code>
+                    <code class="d-block p-2 rounded">${displayValue}</code>
                 </div>`;
         }
+        result.classList.remove('d-none');
+        resetButtons();
     })
     .catch(error => {
         console.error('Fetch error:', error);
         result.innerHTML = `<div class="alert alert-danger">错误: ${error.message}</div>`;
+        result.classList.remove('d-none');
+        resetButtons();
     });
+}
+
+function resetButtons() {
+    primarySpinner.classList.add('d-none');
+    secondarySpinner.classList.add('d-none');
+    actionPrimary.disabled = false;
+    actionSecondary.disabled = false;
 }
 
 // 表单提交
@@ -137,20 +130,24 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
 
     if (!algorithm) {
         result.innerHTML = '<div class="alert alert-warning">请先选择算法</div>';
+        result.classList.remove('d-none');
         return;
     }
     if (!input) {
         result.innerHTML = '<div class="alert alert-warning">请输入内容</div>';
+        result.classList.remove('d-none');
         return;
     }
     if (algorithm === 'signature' && action === 'action-secondary' && !signature) {
         result.innerHTML = '<div class="alert alert-warning">请输入签名</div>';
+        result.classList.remove('d-none');
         return;
     }
     if (algorithm === 'affine') {
         const isValid = /^[A-Za-z\s]*$/.test(input);
         if (!isValid) {
             result.innerHTML = '<div class="alert alert-warning">仿射密码仅支持字母和空格</div>';
+            result.classList.remove('d-none');
             return;
         }
     }
@@ -205,6 +202,7 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
             break;
         default:
             result.innerHTML = '<div class="alert alert-danger">未知算法</div>';
+            result.classList.remove('d-none');
             return;
     }
 
