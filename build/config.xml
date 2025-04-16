@@ -1,0 +1,7 @@
+<config>
+    <affine_a>5</affine_a>
+    <affine_b>8</affine_b>
+    <rc4_key>secretkey</rc4_key>
+    <des_key>8bytekey</des_key>
+    <lfsr_seed>1234</lfsr_seed>
+</config>

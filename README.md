@@ -1,3 +1,8 @@
+# todo
+1.数字签名还有点问题，不能验证签名
+2.D-H秘钥交换有问题
+3.未知bug
+
 # CryptoService
 
 CryptoService 是一个前后端分离的密码学服务系统，提供基于 Web 的界面，支持多种加密、解密、哈希和密钥交换算法，包括仿射密码、RC4、LFSR + J-K 触发器、DES、RSA、SHA-1、RSA 数字签名和 Diffie-Hellman 密钥交换。后端使用 C++ 和 Crow 框架开发，前端使用 HTML、CSS 和 JavaScript，并基于 Bootstrap 构建。
