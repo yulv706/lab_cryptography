@@ -578,8 +578,8 @@ int main() {
             return res;
         }
     });
-
-    // D-H 密钥交换
+    
+    // D-H 端点
     CROW_ROUTE(app, "/dh").methods(crow::HTTPMethod::POST)([e_rsa, d_rsa, n_rsa](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -608,26 +608,31 @@ int main() {
                 res.body = crow::json::wvalue{{"error", "无效的角色参数"}}.dump();
                 return res;
             }
-
+    
             int p = 997, g = 2;
             int private_key = (role == "server") ? 123 : 456;
             int public_key = mod_exp(g, private_key, p);
             int other_public_key = mod_exp(g, (role == "server") ? 456 : 123, p);
             int shared_key = mod_exp(other_public_key, private_key, p);
-
+            CROW_LOG_INFO << "Shared Key (int): " << shared_key;
+    
             std::string hash = compute_sha1(message);
+            CROW_LOG_INFO << "SHA-1 Hash: " << hash;
             std::string signature = rsa_sign(hash, d_rsa, n_rsa);
+            CROW_LOG_INFO << "Signature: " << signature;
             std::string encoded_signature;
             CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(encoded_signature));
             encoder.Put((const CryptoPP::byte*)signature.data(), signature.size());
             encoder.MessageEnd();
-
+    
             bool valid = rsa_verify(hash, signature, e_rsa, n_rsa);
+            CROW_LOG_INFO << "Signature Valid: " << valid;
             std::string encoded_shared_key;
             CryptoPP::Base64Encoder key_encoder(new CryptoPP::StringSink(encoded_shared_key));
-            key_encoder.Put((const CryptoPP::byte*)&shared_key, sizeof(shared_key));
+            uint32_t shared_key_be = htonl(shared_key); // 转换为大端序
+            key_encoder.Put((const CryptoPP::byte*)&shared_key_be, 4);
             key_encoder.MessageEnd();
-
+    
             res.body = crow::json::wvalue{
                 {"message", message},
                 {"shared_key", encoded_shared_key},

@@ -42,11 +42,9 @@ algorithmSelect.addEventListener('change', function() {
     signatureGroup.style.display = algorithm === 'signature' ? 'block' : 'none';
     dhRoleGroup.style.display = algorithm === 'dh' ? 'block' : 'none';
 
-    inputText.placeholder = algorithm === 'sha1' || algorithm === 'signature' || algorithm === 'dh'
-        ? '输入消息'
-        : algorithm
-            ? '输入明文或Base64编码的密文'
-            : '输入文本';
+    inputText.placeholder = algorithm === 'affine' ? '输入明文或密文（仅限字母和空格）'
+        : algorithm === 'sha1' || algorithm === 'signature' || algorithm === 'dh' ? '输入消息'
+        : algorithm ? '输入明文或Base64编码的密文' : '输入文本';
 
     if (algorithm === 'sha1') {
         actionPrimary.textContent = '计算哈希';
