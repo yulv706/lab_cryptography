@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/CryptoService.dir/CryptoService.cpp.o -o CryptoService  -Wl,-rpath,/root/new/crypto/build libCryptoCore.so -lcryptopp /usr/lib/x86_64-linux-gnu/libtinyxml2.so.9.0.0 /usr/lib/x86_64-linux-gnu/libboost_system.so.1.74.0 -lpthread 
