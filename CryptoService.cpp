@@ -720,7 +720,7 @@ int main() {
     });
 
     // 启动服务器
-    CROW_LOG_INFO << "Starting server on 192.168.3.6:8080";
-    app.bindaddr("192.168.3.6").port(8080).multithreaded().run();
+    CROW_LOG_INFO << "Starting server on 0.0.0.0:8080";
+    app.bindaddr("0.0.0.0").port(8080).multithreaded().run();
     return 0;
 }
