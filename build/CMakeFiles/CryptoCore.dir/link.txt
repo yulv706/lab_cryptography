@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC -O3 -DNDEBUG -shared -Wl,-soname,libCryptoCore.so -o libCryptoCore.so CMakeFiles/CryptoCore.dir/CryptoCore.cpp.o  -lcryptopp 

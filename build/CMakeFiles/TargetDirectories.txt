@@ -1,4 +1,0 @@
-/root/new/crypto/build/CMakeFiles/CryptoCore.dir
-/root/new/crypto/build/CMakeFiles/CryptoService.dir
-/root/new/crypto/build/CMakeFiles/edit_cache.dir
-/root/new/crypto/build/CMakeFiles/rebuild_cache.dir
