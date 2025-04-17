@@ -133,8 +133,9 @@ cd build
 
 ```bash
 cd web
-python3 -m http.server 8000
+python3 no_cache_server.py
 ```
+no_cache_server.py是无缓存，为了好测试
 注意，需要修改web/script.js中后端地址（修改为自己的虚拟机地址）
 
 

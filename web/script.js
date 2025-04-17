@@ -34,18 +34,28 @@ themeToggle.addEventListener('click', () => {
 
 algorithmSelect.addEventListener('change', function() {
     const algorithm = this.value;
+    const affineGroup = document.getElementById('affine-group'); // 新增获取元素
+    
+    // 重置界面元素
     result.innerHTML = '';
     result.classList.add('d-none');
     inputText.value = '';
     signatureInput.value = '';
+    
+    // 更新算法描述
     description.textContent = algorithm ? algorithmDescriptions[algorithm] : '';
+    
+    // 控制参数组显示（新增仿射密码判断）
+    affineGroup.style.display = algorithm === 'affine' ? 'block' : 'none'; // 新增控制
     signatureGroup.style.display = algorithm === 'signature' ? 'block' : 'none';
     dhRoleGroup.style.display = algorithm === 'dh' ? 'block' : 'none';
 
+    // 设置输入框提示文字
     inputText.placeholder = algorithm === 'affine' ? '输入明文或密文（仅限字母和空格）'
         : algorithm === 'sha1' || algorithm === 'signature' || algorithm === 'dh' ? '输入消息'
         : algorithm ? '输入明文或Base64编码的密文' : '输入文本';
 
+    // 更新操作按钮
     if (algorithm === 'sha1') {
         actionPrimary.textContent = '计算哈希';
         actionSecondary.style.display = 'none';
@@ -56,6 +66,10 @@ algorithmSelect.addEventListener('change', function() {
     } else if (algorithm === 'dh') {
         actionPrimary.textContent = '执行密钥交换';
         actionSecondary.style.display = 'none';
+    } else if (algorithm === 'affine') {  // 新增仿射密码按钮设置
+        actionPrimary.textContent = '加密';
+        actionSecondary.textContent = '解密';
+        actionSecondary.style.display = 'block';
     } else if (algorithm) {
         actionPrimary.textContent = '加密';
         actionSecondary.textContent = '解密';
@@ -73,6 +87,31 @@ function sendRequest(url, data, isBinaryInput = false, isBinaryOutput = false) {
     secondarySpinner.classList.remove('d-none');
     actionPrimary.disabled = true;
     actionSecondary.disabled = true;
+
+    // 新增仿射密码参数处理
+    if (algorithmSelect.value === 'affine') {
+        const a = document.getElementById('affine-a').value;
+        const b = document.getElementById('affine-b').value;
+        // // 添加必要参数验证
+        // if (!a || !b) {
+        //     result.innerHTML = '<div class="alert alert-warning">请填写仿射密码参数 a 和 b</div>';
+        //     result.classList.remove('d-none');
+        //     resetButtons();
+        //     return;
+        // }
+        // // 互质检查 (a必须与26互质)
+        // if (gcd(numA, 26) !== 1) {
+        //     result.innerHTML = `
+        //         <div class="alert alert-warning">
+        //             参数 a 必须与26互质，当前值 ${numA} 不符合要求<br>
+        //             有效值示例：1,3,5,7,9,11,15,17,19,21,23,25
+        //         </div>`;
+        //     result.classList.remove('d-none');
+        //     resetButtons();
+        //     return;
+        // }
+        data = { ...data, a: parseInt(a), b: parseInt(b) };
+    }
 
     fetch(`http://192.168.3.4:8080${url}`, {
         method: 'POST',
@@ -143,8 +182,16 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
     }
     if (algorithm === 'affine') {
         const isValid = /^[A-Za-z\s]*$/.test(input);
+        const a = document.getElementById('affine-a').value;
+        const b = document.getElementById('affine-b').value;
+        
         if (!isValid) {
             result.innerHTML = '<div class="alert alert-warning">仿射密码仅支持字母和空格</div>';
+            result.classList.remove('d-none');
+            return;
+        }
+        if (!a || !b) {
+            result.innerHTML = '<div class="alert alert-warning">请填写参数 a 和 b</div>';
             result.classList.remove('d-none');
             return;
         }

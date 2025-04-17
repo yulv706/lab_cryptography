@@ -37,6 +37,73 @@ void add_cors_headers(crow::response& res) {
     res.set_header("Access-Control-Allow-Headers", "Content-Type, Accept");
 }
 
+bool update_affine_config(int a, int b) {
+    XMLDocument doc;
+    if (doc.LoadFile("config.xml") != XML_SUCCESS) {
+        // 创建新配置如果文件不存在
+        XMLElement* root = doc.NewElement("config");
+        doc.InsertFirstChild(root);
+
+        // 初始化必要字段
+        XMLElement* elem = doc.NewElement("rc4_key");
+        elem->SetText("default_rc4");
+        root->InsertEndChild(elem);
+
+        elem = doc.NewElement("des_key");
+        elem->SetText("default_des");
+        root->InsertEndChild(elem);
+
+        elem = doc.NewElement("lfsr_seed");
+        elem->SetText(12345);
+        root->InsertEndChild(elem);
+    }
+
+    XMLElement* root = doc.RootElement();
+    
+    // 更新 affine_a
+    XMLElement* affine_a = root->FirstChildElement("affine_a");
+    if (!affine_a) {
+        affine_a = doc.NewElement("affine_a");
+        root->InsertEndChild(affine_a);
+    }
+    affine_a->SetText(a);
+
+    // 更新 affine_b
+    XMLElement* affine_b = root->FirstChildElement("affine_b");
+    if (!affine_b) {
+        affine_b = doc.NewElement("affine_b");
+        root->InsertEndChild(affine_b);
+    }
+    affine_b->SetText(b);
+
+    // 保存其他已有字段（如果存在）
+    if (XMLElement* rc4_key = root->FirstChildElement("rc4_key")) {
+        // 保持现有值不变
+    } else {
+        // 如果不存在则创建默认
+        rc4_key = doc.NewElement("rc4_key");
+        rc4_key->SetText("default_rc4");
+        root->InsertEndChild(rc4_key);
+    }
+
+    // 其他字段类似处理...
+
+    return doc.SaveFile("config.xml") == XML_SUCCESS;
+}
+// 新增参数验证函数
+bool is_valid_a(int a) {
+    if (a <= 0 || a >= 26) return false;
+    // 检查a是否与26互质
+    int gcd = 26;
+    int temp = a;
+    while (temp != 0) {
+        int remainder = gcd % temp;
+        gcd = temp;
+        temp = remainder;
+    }
+    return gcd == 1;
+}
+
 int main() {
     crow::App<crow::CORSHandler> app;
     app.loglevel(crow::LogLevel::Debug);
@@ -78,19 +145,43 @@ int main() {
                 res.body = crow::json::wvalue{{"error", "无效的 JSON 格式"}}.dump();
                 return res;
             }
-            if (!params.has("plaintext")) {
+            if (!params.has("plaintext") || !params.has("a") || !params.has("b")) {
                 res.code = 400;
-                res.body = crow::json::wvalue{{"error", "缺少明文参数"}}.dump();
+                res.body = crow::json::wvalue{{"error", "缺少必要参数"}}.dump();
                 return res;
             }
             std::string plaintext = params["plaintext"].s();
+            int a = params["a"].i();
+            int b = params["b"].i();
+            if (a <= 0 || a >= 26 || !is_valid_a(a)) {
+                res.code = 400;
+                res.body = crow::json::wvalue{{"error", "参数a必须与26互质且 1 <= a < 26"}}.dump();
+                return res;
+            }
+            if (b < 0 || b >= 26) {
+                res.code = 400;
+                res.body = crow::json::wvalue{{"error", "参数b必须在 0 <= b < 26 范围内"}}.dump();
+                return res;
+            }
+            // 更新内存配置
+            config.affine_a = a;
+            config.affine_b = b;
+
+            // 更新配置文件
+            if (!update_affine_config(a, b)) {
+                CROW_LOG_WARNING << "Failed to update config.xml";
+            }
             if (plaintext.empty()) {
                 res.code = 400;
                 res.body = crow::json::wvalue{{"error", "明文不能为空"}}.dump();
                 return res;
             }
             std::string ciphertext = affine_encrypt(plaintext, config.affine_a, config.affine_b);
-            res.body = crow::json::wvalue{{"ciphertext", ciphertext}}.dump();
+            res.body = crow::json::wvalue{
+                {"ciphertext", ciphertext},
+                {"current_a", a},
+                {"current_b", b}
+            }.dump();
             return res;
         } catch (const std::exception& e) {
             CROW_LOG_ERROR << "Error in /affine/encrypt: " << e.what();
@@ -112,7 +203,7 @@ int main() {
                 res.body = crow::json::wvalue{{"error", "无效的 JSON 格式"}}.dump();
                 return res;
             }
-            if (!params.has("ciphertext")) {
+            if (!params.has("ciphertext") || !params.has("a") || !params.has("b")) {
                 res.code = 400;
                 res.body = crow::json::wvalue{{"error", "缺少密文参数"}}.dump();
                 return res;
@@ -124,7 +215,32 @@ int main() {
                 return res;
             }
             std::string plaintext = affine_decrypt(ciphertext, config.affine_a, config.affine_b);
-            res.body = crow::json::wvalue{{"plaintext", plaintext}}.dump();
+            int a = params["a"].i();
+            int b = params["b"].i();
+            if (a <= 0 || a >= 26 || !is_valid_a(a)) {
+                res.code = 400;
+                res.body = crow::json::wvalue{{"error", "参数a必须与26互质且 1 <= a < 26"}}.dump();
+                return res;
+            }
+            if (b < 0 || b >= 26) {
+                res.code = 400;
+                res.body = crow::json::wvalue{{"error", "参数b必须在 0 <= b < 26 范围内"}}.dump();
+                return res;
+            }
+            // 更新内存配置
+            config.affine_a = a;
+            config.affine_b = b;
+
+            // 更新配置文件
+            if (!update_affine_config(a, b)) {
+                CROW_LOG_WARNING << "Failed to update config.xml";
+            }
+
+            res.body = crow::json::wvalue{
+                {"plaintext", plaintext},
+                {"current_a", a},
+                {"current_b", b}
+            }.dump();
             return res;
         } catch (const std::exception& e) {
             CROW_LOG_ERROR << "Error in /affine/decrypt: " << e.what();
