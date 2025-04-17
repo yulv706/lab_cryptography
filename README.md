@@ -79,7 +79,6 @@ sudo make install
 
 ```bash
 git clone <repository-url>
-cd crypto
 ```
 
 ### 4. 构建后端
@@ -136,13 +135,15 @@ cd build
 cd web
 python3 -m http.server 8000
 ```
+注意，需要修改web/script.js中后端地址（修改为自己的虚拟机地址）
+
 
 ### 3. 访问 Web 界面
 
 在浏览器中打开以下地址：
 
 ```
-http://127.0.0.1:8000
+http://<ip>:8000
 ```
 
 你将看到 CryptoService 的 Web 界面，可以进行以下操作：

@@ -74,7 +74,7 @@ function sendRequest(url, data, isBinaryInput = false, isBinaryOutput = false) {
     actionPrimary.disabled = true;
     actionSecondary.disabled = true;
 
-    fetch(`http://192.168.3.6:8080${url}`, {
+    fetch(`http://192.168.3.4:8080${url}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
