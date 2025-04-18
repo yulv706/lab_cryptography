@@ -127,7 +127,7 @@ function sendRequest(url, data, isBinaryInput = false, isBinaryOutput = false) {
         data = { ...data, a: parseInt(a), b: parseInt(b) };
     }
 
-    fetch(`http://192.168.3.4:8080${url}`, {
+    fetch(`http://192.168.4.4:8080${url}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)

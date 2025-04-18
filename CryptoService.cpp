@@ -707,66 +707,66 @@ int main() {
                 res.body = crow::json::wvalue{{"error", "无效的 JSON 格式"}}.dump();
                 return res;
             }
-            if (!params.has("message") || !params.has("role")) {
+            if (!params.has("message") || !params.has("public_key")) {
                 res.code = 400;
-                res.body = crow::json::wvalue{{"error", "缺少消息或角色参数"}}.dump();
+                res.body = crow::json::wvalue{{"error", "缺少消息或公钥参数"}}.dump();
                 return res;
             }
             std::string message = params["message"].s();
-            std::string role = params["role"].s();
-            if (message.empty() || role.empty()) {
+            int client_public_key = params["public_key"].i();
+            if (message.empty()) {
                 res.code = 400;
-                res.body = crow::json::wvalue{{"error", "消息或角色不能为空"}}.dump();
+                res.body = crow::json::wvalue{{"error", "消息不能为空"}}.dump();
                 return res;
             }
-            if (role != "server" && role != "client") {
-                res.code = 400;
-                res.body = crow::json::wvalue{{"error", "无效的角色参数"}}.dump();
-                return res;
-            }
+
     
             int p = 997, g = 2;
-            int private_key = (role == "server") ? 123 : 456;
-            int public_key = mod_exp(g, private_key, p);
-            int other_public_key = mod_exp(g, (role == "server") ? 456 : 123, p);
-            int shared_key = mod_exp(other_public_key, private_key, p);
-            CROW_LOG_INFO << "Shared Key (int): " << shared_key;
-    
-            std::string hash = compute_sha1(message);
-            CROW_LOG_INFO << "SHA-1 Hash: " << hash;
-            std::string signature = rsa_sign(hash, d_rsa, n_rsa);
-            CROW_LOG_INFO << "Signature: " << signature;
-            std::string encoded_signature;
-            CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(encoded_signature));
-            encoder.Put((const CryptoPP::byte*)signature.data(), signature.size());
+            int server_private_key = 123; // 服务器固定私钥
+            int shared_key = mod_exp(client_public_key, server_private_key, p);
+            CROW_LOG_INFO << "Calculated Shared Key: " << shared_key;
+
+            // 使用shared_key进行简单XOR加密
+            std::string encrypted_message;
+            uint32_t key = static_cast<uint32_t>(shared_key);
+            const char* key_bytes = reinterpret_cast<const char*>(&key);
+            size_t key_len = sizeof(key);
+
+            for (size_t i = 0; i < message.size(); ++i) {
+                encrypted_message += message[i] ^ key_bytes[i % key_len];
+            }
+
+            // Base64编码加密后的消息
+            std::string encoded_encrypted;
+            CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(encoded_encrypted), false);
+            encoder.Put(reinterpret_cast<const CryptoPP::byte*>(encrypted_message.data()), encrypted_message.size());
             encoder.MessageEnd();
-    
-            bool valid = rsa_verify(hash, signature, e_rsa, n_rsa);
-            CROW_LOG_INFO << "Signature Valid: " << valid;
+
+            // Base64编码共享密钥
             std::string encoded_shared_key;
             CryptoPP::Base64Encoder key_encoder(new CryptoPP::StringSink(encoded_shared_key));
-            uint32_t shared_key_be = htonl(shared_key); // 转换为大端序
-            key_encoder.Put((const CryptoPP::byte*)&shared_key_be, 4);
+            uint32_t shared_key_be = htonl(shared_key);
+            key_encoder.Put(reinterpret_cast<const CryptoPP::byte*>(&shared_key_be), sizeof(shared_key_be));
             key_encoder.MessageEnd();
-    
+
+            // 构造响应
             res.body = crow::json::wvalue{
-                {"message", message},
-                {"shared_key", encoded_shared_key},
-                {"signature", encoded_signature},
-                {"signature_valid", valid}
+                {"encrypted_message", encoded_encrypted},
+                {"shared_key", encoded_shared_key}
             }.dump();
+
             return res;
         } catch (const CryptoPP::Exception& e) {
-            CROW_LOG_ERROR << "Error in /dh: " << e.what();
-            res.code = 400;
-            res.body = crow::json::wvalue{{"error", "无效的 Base64 数据: " + std::string(e.what())}}.dump();
+            CROW_LOG_ERROR << "Crypto错误: " << e.what();
+            res.code = 500;
+            res.body = crow::json::wvalue{{"error", "加密错误: " + std::string(e.what())}}.dump();
             return res;
         } catch (const std::exception& e) {
-            CROW_LOG_ERROR << "Error in /dh: " << e.what();
+            CROW_LOG_ERROR << "处理错误: " << e.what();
             res.code = 500;
-            res.body = crow::json::wvalue{{"error", "服务器内部错误: " + std::string(e.what())}}.dump();
+            res.body = crow::json::wvalue{{"error", "处理错误: " + std::string(e.what())}}.dump();
             return res;
-        }
+            }
     });
 
     app.port(8080).multithreaded().run();
