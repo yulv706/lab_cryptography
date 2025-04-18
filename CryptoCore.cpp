@@ -7,6 +7,7 @@
 #include <cryptopp/filters.h>
 #include <cryptopp/sha.h>
 #include <cryptopp/osrng.h>
+#include <cryptopp/md5.h>
 
 // 工具函数：模逆运算
 int mod_inverse(int a, int m) {
@@ -37,6 +38,30 @@ int mod_exp(int base, int exp, int mod) {
         exp >>= 1;
     }
     return result;
+}
+
+// MD5哈希计算
+std::string compute_md5(const std::string& message) {
+    std::string digest;
+    CryptoPP::Weak::MD5 md5;
+    CryptoPP::StringSource(message, true,
+        new CryptoPP::HashFilter(md5,
+            new CryptoPP::StringSink(digest)
+        )
+    );
+    return digest;
+}
+
+// RSA解密（使用公钥解密）
+std::string rsa_decrypt_with_public(const std::string& ciphertext, int e, int n) {
+    std::string plaintext;
+    for (size_t i = 0; i < ciphertext.size(); i += 2) {
+        int c = (static_cast<unsigned char>(ciphertext[i]) << 8) |
+                static_cast<unsigned char>(ciphertext[i + 1]);
+        int m = mod_exp(c, e, n);
+        plaintext += (char)m;
+    }
+    return plaintext;
 }
 
 // 仿射密码加密

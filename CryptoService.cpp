@@ -4,17 +4,16 @@
 #include <string>
 #include <cryptopp/base64.h>
 #include "CryptoCore.h"
+#include <cryptopp/hex.h>
 
 using namespace tinyxml2;
 
-// 配置结构体
 struct Config {
     int affine_a, affine_b;
     std::string rc4_key, des_key;
     unsigned int lfsr_seed;
 };
 
-// 从 XML 加载配置
 bool load_config(Config& config) {
     XMLDocument doc;
     if (doc.LoadFile("config.xml") != XML_SUCCESS) {
@@ -29,7 +28,6 @@ bool load_config(Config& config) {
     return true;
 }
 
-// 辅助函数：添加 CORS 头
 void add_cors_headers(crow::response& res) {
     CROW_LOG_DEBUG << "Adding CORS headers to response";
     res.set_header("Access-Control-Allow-Origin", "*");
@@ -40,11 +38,9 @@ void add_cors_headers(crow::response& res) {
 bool update_affine_config(int a, int b) {
     XMLDocument doc;
     if (doc.LoadFile("config.xml") != XML_SUCCESS) {
-        // 创建新配置如果文件不存在
         XMLElement* root = doc.NewElement("config");
         doc.InsertFirstChild(root);
 
-        // 初始化必要字段
         XMLElement* elem = doc.NewElement("rc4_key");
         elem->SetText("default_rc4");
         root->InsertEndChild(elem);
@@ -60,7 +56,6 @@ bool update_affine_config(int a, int b) {
 
     XMLElement* root = doc.RootElement();
     
-    // 更新 affine_a
     XMLElement* affine_a = root->FirstChildElement("affine_a");
     if (!affine_a) {
         affine_a = doc.NewElement("affine_a");
@@ -68,7 +63,6 @@ bool update_affine_config(int a, int b) {
     }
     affine_a->SetText(a);
 
-    // 更新 affine_b
     XMLElement* affine_b = root->FirstChildElement("affine_b");
     if (!affine_b) {
         affine_b = doc.NewElement("affine_b");
@@ -76,24 +70,18 @@ bool update_affine_config(int a, int b) {
     }
     affine_b->SetText(b);
 
-    // 保存其他已有字段（如果存在）
     if (XMLElement* rc4_key = root->FirstChildElement("rc4_key")) {
-        // 保持现有值不变
     } else {
-        // 如果不存在则创建默认
         rc4_key = doc.NewElement("rc4_key");
         rc4_key->SetText("default_rc4");
         root->InsertEndChild(rc4_key);
     }
 
-    // 其他字段类似处理...
-
     return doc.SaveFile("config.xml") == XML_SUCCESS;
 }
-// 新增参数验证函数
+
 bool is_valid_a(int a) {
     if (a <= 0 || a >= 26) return false;
-    // 检查a是否与26互质
     int gcd = 26;
     int temp = a;
     while (temp != 0) {
@@ -133,7 +121,6 @@ int main() {
         return res;
     });
 
-    // 仿射密码加密
     CROW_ROUTE(app, "/affine/encrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -163,11 +150,9 @@ int main() {
                 res.body = crow::json::wvalue{{"error", "参数b必须在 0 <= b < 26 范围内"}}.dump();
                 return res;
             }
-            // 更新内存配置
             config.affine_a = a;
             config.affine_b = b;
 
-            // 更新配置文件
             if (!update_affine_config(a, b)) {
                 CROW_LOG_WARNING << "Failed to update config.xml";
             }
@@ -191,7 +176,6 @@ int main() {
         }
     });
 
-    // 仿射密码解密
     CROW_ROUTE(app, "/affine/decrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -227,11 +211,9 @@ int main() {
                 res.body = crow::json::wvalue{{"error", "参数b必须在 0 <= b < 26 范围内"}}.dump();
                 return res;
             }
-            // 更新内存配置
             config.affine_a = a;
             config.affine_b = b;
 
-            // 更新配置文件
             if (!update_affine_config(a, b)) {
                 CROW_LOG_WARNING << "Failed to update config.xml";
             }
@@ -250,7 +232,6 @@ int main() {
         }
     });
 
-    // RC4 加密
     CROW_ROUTE(app, "/rc4/encrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -288,7 +269,6 @@ int main() {
         }
     });
 
-    // RC4 解密
     CROW_ROUTE(app, "/rc4/decrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -311,7 +291,6 @@ int main() {
                 res.body = crow::json::wvalue{{"error", "密文不能为空"}}.dump();
                 return res;
             }
-            // 解码 Base64 输入
             std::string ciphertext;
             CryptoPP::Base64Decoder decoder(new CryptoPP::StringSink(ciphertext));
             decoder.Put((const CryptoPP::byte*)encoded_ciphertext.data(), encoded_ciphertext.size());
@@ -332,7 +311,6 @@ int main() {
         }
     });
 
-    // LFSR + J-K 触发器加密
     CROW_ROUTE(app, "/lfsr_jk/encrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -370,7 +348,6 @@ int main() {
         }
     });
 
-    // LFSR + J-K 触发器解密
     CROW_ROUTE(app, "/lfsr_jk/decrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -413,7 +390,6 @@ int main() {
         }
     });
 
-    // DES 加密
     CROW_ROUTE(app, "/des/encrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -451,7 +427,6 @@ int main() {
         }
     });
 
-    // DES 解密
     CROW_ROUTE(app, "/des/decrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -494,7 +469,6 @@ int main() {
         }
     });
 
-    // RSA 加密
     CROW_ROUTE(app, "/rsa/encrypt").methods(crow::HTTPMethod::POST)([e_rsa, n_rsa](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -532,7 +506,6 @@ int main() {
         }
     });
 
-    // RSA 解密
     CROW_ROUTE(app, "/rsa/decrypt").methods(crow::HTTPMethod::POST)([d_rsa, n_rsa](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -575,7 +548,6 @@ int main() {
         }
     });
 
-    // SHA-1 哈希
     CROW_ROUTE(app, "/sha1").methods(crow::HTTPMethod::POST)([](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -613,7 +585,6 @@ int main() {
         }
     });
 
-    // RSA 签名
     CROW_ROUTE(app, "/rsa/sign").methods(crow::HTTPMethod::POST)([d_rsa, n_rsa](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -651,7 +622,6 @@ int main() {
         }
     });
 
-    // RSA 验证
     CROW_ROUTE(app, "/rsa/verify").methods(crow::HTTPMethod::POST)([e_rsa, n_rsa](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
@@ -695,8 +665,7 @@ int main() {
         }
     });
     
-    // D-H 端点
-    CROW_ROUTE(app, "/dh").methods(crow::HTTPMethod::POST)([e_rsa, d_rsa, n_rsa](const crow::request& req) {
+    CROW_ROUTE(app, "/dh").methods(crow::HTTPMethod::POST)([e_rsa, n_rsa](const crow::request& req) {
         crow::response res;
         add_cors_headers(res);
         try {
@@ -707,66 +676,63 @@ int main() {
                 res.body = crow::json::wvalue{{"error", "无效的 JSON 格式"}}.dump();
                 return res;
             }
-            if (!params.has("message") || !params.has("public_key")) {
+            if (!params.has("encrypted_public_key") || !params.has("signature")) {
                 res.code = 400;
-                res.body = crow::json::wvalue{{"error", "缺少消息或公钥参数"}}.dump();
+                res.body = crow::json::wvalue{{"error", "缺少必要参数"}}.dump();
                 return res;
             }
-            std::string message = params["message"].s();
-            int client_public_key = params["public_key"].i();
-            if (message.empty()) {
-                res.code = 400;
-                res.body = crow::json::wvalue{{"error", "消息不能为空"}}.dump();
-                return res;
-            }
+            std::string encrypted_public_key = params["encrypted_public_key"].s();
+            std::string signature = params["signature"].s();
+            
+            std::string decoded_encrypted_public_key;
+            CryptoPP::Base64Decoder decoder1(new CryptoPP::StringSink(decoded_encrypted_public_key));
+            decoder1.Put((const CryptoPP::byte*)encrypted_public_key.data(), encrypted_public_key.size());
+            decoder1.MessageEnd();
+            
+            std::string decoded_signature;
+            CryptoPP::Base64Decoder decoder2(new CryptoPP::StringSink(decoded_signature));
+            decoder2.Put((const CryptoPP::byte*)signature.data(), signature.size());
+            decoder2.MessageEnd();
+            
+            std::string decrypted_public_key;
 
-    
-            int p = 997, g = 2;
-            int server_private_key = 123; // 服务器固定私钥
-            int shared_key = mod_exp(client_public_key, server_private_key, p);
-            CROW_LOG_INFO << "Calculated Shared Key: " << shared_key;
+            decrypted_public_key = rsa_decrypt_with_public(decoded_encrypted_public_key, e_rsa, n_rsa);
+            
+            std::string decrypted_signature = rsa_decrypt_with_public(decoded_signature, e_rsa, n_rsa);
+            std::string computed_hash = compute_md5(decrypted_public_key);
 
-            // 使用shared_key进行简单XOR加密
-            std::string encrypted_message;
-            uint32_t key = static_cast<uint32_t>(shared_key);
-            const char* key_bytes = reinterpret_cast<const char*>(&key);
-            size_t key_len = sizeof(key);
-
-            for (size_t i = 0; i < message.size(); ++i) {
-                encrypted_message += message[i] ^ key_bytes[i % key_len];
-            }
-
-            // Base64编码加密后的消息
-            std::string encoded_encrypted;
-            CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(encoded_encrypted), false);
-            encoder.Put(reinterpret_cast<const CryptoPP::byte*>(encrypted_message.data()), encrypted_message.size());
+            std::string hex_hash;
+            CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hex_hash));
+            encoder.Put((const CryptoPP::byte*)computed_hash.data(), computed_hash.size());
             encoder.MessageEnd();
+            CROW_LOG_INFO << "decrypted_public_key: " << decrypted_public_key;
+            CROW_LOG_INFO << "computed_hash hex: " << hex_hash;
 
-            // Base64编码共享密钥
-            std::string encoded_shared_key;
-            CryptoPP::Base64Encoder key_encoder(new CryptoPP::StringSink(encoded_shared_key));
-            uint32_t shared_key_be = htonl(shared_key);
-            key_encoder.Put(reinterpret_cast<const CryptoPP::byte*>(&shared_key_be), sizeof(shared_key_be));
-            key_encoder.MessageEnd();
-
-            // 构造响应
-            res.body = crow::json::wvalue{
-                {"encrypted_message", encoded_encrypted},
-                {"shared_key", encoded_shared_key}
-            }.dump();
-
+            if (computed_hash != decrypted_signature) {
+                res.code = 400;
+                res.body = crow::json::wvalue{{"error", "身份验证失败"}}.dump();
+                return res;
+            }
+            
+            int p = 997, g = 2;
+            int server_private_key = 123;
+            int server_public_key = mod_exp(g, server_private_key, p);
+            int client_public_key = std::stoi(decrypted_public_key);
+            int shared_key = mod_exp(client_public_key, server_private_key, p);
+            
+            res.body = crow::json::wvalue{{"shared_key", shared_key}}.dump();
             return res;
         } catch (const CryptoPP::Exception& e) {
-            CROW_LOG_ERROR << "Crypto错误: " << e.what();
-            res.code = 500;
-            res.body = crow::json::wvalue{{"error", "加密错误: " + std::string(e.what())}}.dump();
+            CROW_LOG_ERROR << "Error in /dh: " << e.what();
+            res.code = 400;
+            res.body = crow::json::wvalue{{"error", "无效的 Base64 数据: " + std::string(e.what())}}.dump();
             return res;
         } catch (const std::exception& e) {
-            CROW_LOG_ERROR << "处理错误: " << e.what();
+            CROW_LOG_ERROR << "Error in /dh: " << e.what();
             res.code = 500;
-            res.body = crow::json::wvalue{{"error", "处理错误: " + std::string(e.what())}}.dump();
+            res.body = crow::json::wvalue{{"error", "服务器内部错误: " + std::string(e.what())}}.dump();
             return res;
-            }
+        }
     });
 
     app.port(8080).multithreaded().run();

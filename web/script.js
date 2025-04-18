@@ -7,39 +7,27 @@ const algorithmDescriptions = {
     rsa: "RSA：非对称加密，基于大整数分解，公钥加密/私钥解密，输出为二进制。",
     sha1: "SHA-1：哈希算法，生成 160 位摘要，输出为二进制 (显示为 Base64)。",
     signature: "数字签名：使用 RSA 签名 SHA-1 哈希，确保消息完整性和来源，签名输出为 Base64。",
-    dh: "D-H 密钥交换：协商共享密钥，使用系统参数 p=997 和 g=2，输入私钥生成公钥"
+    dh: "D-H 密钥交换：使用RSA私钥加密DH公钥并签名，协商共享密钥。"
 };
-
-// 新增模幂运算函数
-function modExp(base, exponent, modulus) {
-    if (modulus === 1) return 0;
-    let result = 1;
-    base = base % modulus;
-    while (exponent > 0) {
-        if (exponent % 2 === 1)
-            result = (result * base) % modulus;
-        exponent = Math.floor(exponent / 2);
-        base = (base * base) % modulus;
-    }
-    return result;
-}
 
 // 动态更新表单
 const algorithmSelect = document.getElementById('algorithm');
 const description = document.getElementById('algorithm-description');
+const inputTextGroup = document.getElementById('input-text-group');
 const inputText = document.getElementById('input-text');
+const affineGroup = document.getElementById('affine-group');
+const affineA = document.getElementById('affine-a');
+const affineB = document.getElementById('affine-b');
 const signatureGroup = document.getElementById('signature-group');
 const signatureInput = document.getElementById('signature-input');
+const dhGroup = document.getElementById('dh-group');
+const rsaD = document.getElementById('rsa-d');
+const rsaN = document.getElementById('rsa-n');
 const actionPrimary = document.getElementById('action-primary');
 const actionSecondary = document.getElementById('action-secondary');
 const primarySpinner = document.getElementById('primary-spinner');
 const secondarySpinner = document.getElementById('secondary-spinner');
 const result = document.getElementById('result');
-const affineGroup = document.getElementById('affine-group'); // 新增获取元素
-const affineA = document.getElementById('affine-a');
-const affineB = document.getElementById('affine-b');
-const dhGroup = document.getElementById('dh-group');              // 新增DH参数组
-const dhPrivateKey = document.getElementById('dh-private-key');   // 新增私钥输入
 
 // 主题切换
 const themeToggle = document.getElementById('theme-toggle');
@@ -50,6 +38,31 @@ themeToggle.addEventListener('click', () => {
         : '<i class="fas fa-moon"></i>';
 });
 
+// 模幂运算
+function mod_exp(base, exp, mod) {
+    let result = 1;
+    base = base % mod;
+    while (exp > 0) {
+        if (exp % 2 === 1) {
+            result = (result * base) % mod;
+        }
+        base = (base * base) % mod;
+        exp = Math.floor(exp / 2);
+    }
+    return result;
+}
+
+// RSA 加密（使用私钥加密）
+function rsa_encrypt(message, d, n) {
+    let ciphertext = '';
+    for (let i = 0; i < message.length; i++) {
+        let m = message.charCodeAt(i);
+        let c = mod_exp(m, d, n);
+        ciphertext += String.fromCharCode((c >> 8) & 0xFF) + String.fromCharCode(c & 0xFF);
+    }
+    return btoa(ciphertext);
+}
+
 algorithmSelect.addEventListener('change', function() {
     const algorithm = this.value;
     
@@ -57,35 +70,35 @@ algorithmSelect.addEventListener('change', function() {
     result.innerHTML = '';
     result.classList.add('d-none');
     inputText.value = '';
+    affineA.value = '';
+    affineB.value = '';
     signatureInput.value = '';
-
-// 动态控制 required 属性（新增DH判断）
-    if (algorithm === 'affine') {
-        affineA.setAttribute('required', 'required');
-        affineB.setAttribute('required', 'required');
-        dhPrivateKey.removeAttribute('required');  // 确保其他算法不冲突
-    } else if (algorithm === 'dh') {
-        dhPrivateKey.setAttribute('required', 'required');
-        affineA.removeAttribute('required');
-        affineB.removeAttribute('required');
-    } else {
-        affineA.removeAttribute('required');
-        affineB.removeAttribute('required');
-        dhPrivateKey.removeAttribute('required');
-    }
+    rsaD.value = '';
+    rsaN.value = '';
     
     // 更新算法描述
     description.textContent = algorithm ? algorithmDescriptions[algorithm] : '';
     
     // 控制参数组显示
-    affineGroup.style.display = algorithm === 'affine' ? 'block' : 'none'; // 新增控制
+    affineGroup.style.display = algorithm === 'affine' ? 'block' : 'none';
     signatureGroup.style.display = algorithm === 'signature' ? 'block' : 'none';
     dhGroup.style.display = algorithm === 'dh' ? 'block' : 'none';
+    inputTextGroup.style.display = algorithm === 'dh' ? 'none' : 'block';
+
+    // 动态管理 required 属性
+    inputText.required = algorithm !== 'dh' && algorithm !== 'signature';
+    affineA.required = algorithm === 'affine';
+    affineB.required = algorithm === 'affine';
+    signatureInput.required = false; // 签名验证时动态设置
+    rsaD.required = algorithm === 'dh';
+    rsaN.required = algorithm === 'dh';
 
     // 设置输入框提示文字
-    inputText.placeholder = algorithm === 'affine' ? '输入明文或密文（仅限字母和空格）'
-        : algorithm === 'sha1' || algorithm === 'signature' || algorithm === 'dh' ? '输入消息'
-        : algorithm ? '输入明文或Base64编码的密文' : '输入文本';
+    if (algorithm !== 'dh') {
+        inputText.placeholder = algorithm === 'affine' ? '输入明文或密文（仅限字母和空格）'
+            : algorithm === 'sha1' || algorithm === 'signature' ? '输入消息'
+            : algorithm ? '输入明文或Base64编码的密文' : '输入文本';
+    }
 
     // 更新操作按钮
     if (algorithm === 'sha1') {
@@ -98,7 +111,7 @@ algorithmSelect.addEventListener('change', function() {
     } else if (algorithm === 'dh') {
         actionPrimary.textContent = '执行密钥交换';
         actionSecondary.style.display = 'none';
-    } else if (algorithm === 'affine') {  // 新增仿射密码按钮设置
+    } else if (algorithm === 'affine') {
         actionPrimary.textContent = '加密';
         actionSecondary.textContent = '解密';
         actionSecondary.style.display = 'block';
@@ -120,14 +133,13 @@ function sendRequest(url, data, isBinaryInput = false, isBinaryOutput = false) {
     actionPrimary.disabled = true;
     actionSecondary.disabled = true;
 
-    // 新增仿射密码参数处理
     if (algorithmSelect.value === 'affine') {
         const a = document.getElementById('affine-a').value;
         const b = document.getElementById('affine-b').value;
         data = { ...data, a: parseInt(a), b: parseInt(b) };
     }
 
-    fetch(`http://192.168.4.4:8080${url}`, {
+    fetch(`http://192.168.3.6:8080${url}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -183,20 +195,30 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
         result.classList.remove('d-none');
         return;
     }
-    if (!input) {
+
+    if (algorithm !== 'dh' && inputText.required && !input) {
         result.innerHTML = '<div class="alert alert-warning">请输入内容</div>';
         result.classList.remove('d-none');
         return;
     }
-    if (algorithm === 'signature' && action === 'action-secondary' && !signature) {
-        result.innerHTML = '<div class="alert alert-warning">请输入签名</div>';
-        result.classList.remove('d-none');
-        return;
+
+    if (algorithm === 'signature' && action === 'action-secondary') {
+        if (!input) {
+            result.innerHTML = '<div class="alert alert-warning">请输入消息</div>';
+            result.classList.remove('d-none');
+            return;
+        }
+        if (!signature) {
+            result.innerHTML = '<div class="alert alert-warning">请输入签名</div>';
+            result.classList.remove('d-none');
+            return;
+        }
     }
+
     if (algorithm === 'affine') {
         const isValid = /^[A-Za-z\s]*$/.test(input);
-        const a = document.getElementById('affine-a').value;
-        const b = document.getElementById('affine-b').value;
+        const a = affineA.value;
+        const b = affineB.value;
         
         if (!isValid) {
             result.innerHTML = '<div class="alert alert-warning">仿射密码仅支持字母和空格</div>';
@@ -209,9 +231,12 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
             return;
         }
     }
+
     if (algorithm === 'dh') {
-        if (!dhPrivateKey.value || isNaN(dhPrivateKey.value)) {
-            result.innerHTML = '<div class="alert alert-warning">请输入有效的私钥（整数）</div>';
+        const d = rsaD.value;
+        const n = rsaN.value;
+        if (!d || !n) {
+            result.innerHTML = '<div class="alert alert-warning">请填写RSA私钥 d 和 n</div>';
             result.classList.remove('d-none');
             return;
         }
@@ -230,7 +255,7 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
             isBinaryOutput = true;
             break;
         case 'lfsr_jk':
-            url = action === 'action-primary' ? '/lfsr_jk/encrypt' : '/lfsr_jk/decrypt';
+            url = action === 'action-primary' ? '/rc4/encrypt' : '/rc4/decrypt';
             data = { [action === 'action-primary' ? 'plaintext' : 'ciphertext']: input };
             isBinaryInput = action !== 'action-primary';
             isBinaryOutput = true;
@@ -261,16 +286,18 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
             isBinaryOutput = action === 'action-primary';
             break;
         case 'dh':
-            const p = 997;  // 系统预设素数
-            const g = 2;   // 系统预设原根
-            const privateKey = parseInt(document.getElementById('dh-private-key').value);
-            const publicKey = modExp(g, privateKey, p);
-
+            const d = rsaD.value;
+            const n = rsaN.value;
+            const p = 997, g = 2;
+            const private_key = Math.floor(Math.random() * (p - 2)) + 1;
+            const public_key = mod_exp(g, private_key, p);
+            const encrypted_public_key = rsa_encrypt(String(public_key), d, n);
+            const hash = CryptoJS.MD5(String(public_key)).toString(CryptoJS.enc.Latin1); // 16 字节二进制
+            const signature = rsa_encrypt(hash, d, n);
+            console.log("public_key_str:", String(public_key));
+            console.log("hash hex:", CryptoJS.MD5(String(public_key)).toString(CryptoJS.enc.Hex));
             url = '/dh';
-            data = {
-                message: input,
-                public_key: publicKey,
-            };
+            data = { encrypted_public_key, signature };
             isBinaryOutput = true;
             break;
         default:
