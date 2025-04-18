@@ -22,6 +22,9 @@ const actionSecondary = document.getElementById('action-secondary');
 const primarySpinner = document.getElementById('primary-spinner');
 const secondarySpinner = document.getElementById('secondary-spinner');
 const result = document.getElementById('result');
+const affineGroup = document.getElementById('affine-group'); // 新增获取元素
+const affineA = document.getElementById('affine-a');
+const affineB = document.getElementById('affine-b');
 
 // 主题切换
 const themeToggle = document.getElementById('theme-toggle');
@@ -34,13 +37,21 @@ themeToggle.addEventListener('click', () => {
 
 algorithmSelect.addEventListener('change', function() {
     const algorithm = this.value;
-    const affineGroup = document.getElementById('affine-group'); // 新增获取元素
     
     // 重置界面元素
     result.innerHTML = '';
     result.classList.add('d-none');
     inputText.value = '';
     signatureInput.value = '';
+
+    // 动态控制 required 属性
+    if (algorithm === 'affine') {
+        affineA.setAttribute('required', 'required');
+        affineB.setAttribute('required', 'required');
+    } else {
+        affineA.removeAttribute('required');
+        affineB.removeAttribute('required');
+    }
     
     // 更新算法描述
     description.textContent = algorithm ? algorithmDescriptions[algorithm] : '';
@@ -92,24 +103,6 @@ function sendRequest(url, data, isBinaryInput = false, isBinaryOutput = false) {
     if (algorithmSelect.value === 'affine') {
         const a = document.getElementById('affine-a').value;
         const b = document.getElementById('affine-b').value;
-        // // 添加必要参数验证
-        // if (!a || !b) {
-        //     result.innerHTML = '<div class="alert alert-warning">请填写仿射密码参数 a 和 b</div>';
-        //     result.classList.remove('d-none');
-        //     resetButtons();
-        //     return;
-        // }
-        // // 互质检查 (a必须与26互质)
-        // if (gcd(numA, 26) !== 1) {
-        //     result.innerHTML = `
-        //         <div class="alert alert-warning">
-        //             参数 a 必须与26互质，当前值 ${numA} 不符合要求<br>
-        //             有效值示例：1,3,5,7,9,11,15,17,19,21,23,25
-        //         </div>`;
-        //     result.classList.remove('d-none');
-        //     resetButtons();
-        //     return;
-        // }
         data = { ...data, a: parseInt(a), b: parseInt(b) };
     }
 
