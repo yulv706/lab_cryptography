@@ -7,8 +7,22 @@ const algorithmDescriptions = {
     rsa: "RSA：非对称加密，基于大整数分解，公钥加密/私钥解密，输出为二进制。",
     sha1: "SHA-1：哈希算法，生成 160 位摘要，输出为二进制 (显示为 Base64)。",
     signature: "数字签名：使用 RSA 签名 SHA-1 哈希，确保消息完整性和来源，签名输出为 Base64。",
-    dh: "D-H 密钥交换：协商共享密钥，附带 RSA 签名验证，输出包含密钥和签名。"
+    dh: "D-H 密钥交换：协商共享密钥，使用系统参数 p=997 和 g=2，输入私钥生成公钥"
 };
+
+// 新增模幂运算函数
+function modExp(base, exponent, modulus) {
+    if (modulus === 1) return 0;
+    let result = 1;
+    base = base % modulus;
+    while (exponent > 0) {
+        if (exponent % 2 === 1)
+            result = (result * base) % modulus;
+        exponent = Math.floor(exponent / 2);
+        base = (base * base) % modulus;
+    }
+    return result;
+}
 
 // 动态更新表单
 const algorithmSelect = document.getElementById('algorithm');
@@ -16,7 +30,6 @@ const description = document.getElementById('algorithm-description');
 const inputText = document.getElementById('input-text');
 const signatureGroup = document.getElementById('signature-group');
 const signatureInput = document.getElementById('signature-input');
-const dhRoleGroup = document.getElementById('dh-role-group');
 const actionPrimary = document.getElementById('action-primary');
 const actionSecondary = document.getElementById('action-secondary');
 const primarySpinner = document.getElementById('primary-spinner');
@@ -25,6 +38,8 @@ const result = document.getElementById('result');
 const affineGroup = document.getElementById('affine-group'); // 新增获取元素
 const affineA = document.getElementById('affine-a');
 const affineB = document.getElementById('affine-b');
+const dhGroup = document.getElementById('dh-group');              // 新增DH参数组
+const dhPrivateKey = document.getElementById('dh-private-key');   // 新增私钥输入
 
 // 主题切换
 const themeToggle = document.getElementById('theme-toggle');
@@ -44,22 +59,28 @@ algorithmSelect.addEventListener('change', function() {
     inputText.value = '';
     signatureInput.value = '';
 
-    // 动态控制 required 属性
+// 动态控制 required 属性（新增DH判断）
     if (algorithm === 'affine') {
         affineA.setAttribute('required', 'required');
         affineB.setAttribute('required', 'required');
+        dhPrivateKey.removeAttribute('required');  // 确保其他算法不冲突
+    } else if (algorithm === 'dh') {
+        dhPrivateKey.setAttribute('required', 'required');
+        affineA.removeAttribute('required');
+        affineB.removeAttribute('required');
     } else {
         affineA.removeAttribute('required');
         affineB.removeAttribute('required');
+        dhPrivateKey.removeAttribute('required');
     }
     
     // 更新算法描述
     description.textContent = algorithm ? algorithmDescriptions[algorithm] : '';
     
-    // 控制参数组显示（新增仿射密码判断）
+    // 控制参数组显示
     affineGroup.style.display = algorithm === 'affine' ? 'block' : 'none'; // 新增控制
     signatureGroup.style.display = algorithm === 'signature' ? 'block' : 'none';
-    dhRoleGroup.style.display = algorithm === 'dh' ? 'block' : 'none';
+    dhGroup.style.display = algorithm === 'dh' ? 'block' : 'none';
 
     // 设置输入框提示文字
     inputText.placeholder = algorithm === 'affine' ? '输入明文或密文（仅限字母和空格）'
@@ -155,7 +176,6 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
     const algorithm = algorithmSelect.value;
     const input = inputText.value.trim();
     const signature = signatureInput.value.trim();
-    const dhRole = document.getElementById('dh-role').value;
     const action = e.submitter.id;
 
     if (!algorithm) {
@@ -185,6 +205,13 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
         }
         if (!a || !b) {
             result.innerHTML = '<div class="alert alert-warning">请填写参数 a 和 b</div>';
+            result.classList.remove('d-none');
+            return;
+        }
+    }
+    if (algorithm === 'dh') {
+        if (!dhPrivateKey.value || isNaN(dhPrivateKey.value)) {
+            result.innerHTML = '<div class="alert alert-warning">请输入有效的私钥（整数）</div>';
             result.classList.remove('d-none');
             return;
         }
@@ -234,8 +261,16 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
             isBinaryOutput = action === 'action-primary';
             break;
         case 'dh':
+            const p = 997;  // 系统预设素数
+            const g = 2;   // 系统预设原根
+            const privateKey = parseInt(document.getElementById('dh-private-key').value);
+            const publicKey = modExp(g, privateKey, p);
+
             url = '/dh';
-            data = { message: input, role: dhRole };
+            data = {
+                message: input,
+                public_key: publicKey,
+            };
             isBinaryOutput = true;
             break;
         default:
