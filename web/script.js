@@ -7,7 +7,7 @@ const algorithmDescriptions = {
     rsa: "RSA：非对称加密，基于大整数分解，公钥加密/私钥解密，输出为二进制。",
     sha1: "SHA-1：哈希算法，生成 160 位摘要，输出为二进制 (显示为 Base64)。",
     signature: "数字签名：使用 RSA 签名 SHA-1 哈希，确保消息完整性和来源，签名输出为 Base64。",
-    dh: "D-H 密钥交换：使用RSA私钥加密DH公钥并签名，协商共享密钥。"
+    dh: "D-H 密钥交换：使用RSA私钥加密DH公钥并签名，协商共享密钥。请填写正确的RSA私钥来验证你的身份!(d=8743,n=10403)  如果你是你,会协商出密钥s"
 };
 
 // 动态更新表单
@@ -18,8 +18,6 @@ const inputText = document.getElementById('input-text');
 const affineGroup = document.getElementById('affine-group');
 const affineA = document.getElementById('affine-a');
 const affineB = document.getElementById('affine-b');
-const signatureGroup = document.getElementById('signature-group');
-const signatureInput = document.getElementById('signature-input');
 const dhGroup = document.getElementById('dh-group');
 const rsaD = document.getElementById('rsa-d');
 const rsaN = document.getElementById('rsa-n');
@@ -72,7 +70,6 @@ algorithmSelect.addEventListener('change', function() {
     inputText.value = '';
     affineA.value = '';
     affineB.value = '';
-    signatureInput.value = '';
     rsaD.value = '';
     rsaN.value = '';
     
@@ -81,7 +78,6 @@ algorithmSelect.addEventListener('change', function() {
     
     // 控制参数组显示
     affineGroup.style.display = algorithm === 'affine' ? 'block' : 'none';
-    signatureGroup.style.display = algorithm === 'signature' ? 'block' : 'none';
     dhGroup.style.display = algorithm === 'dh' ? 'block' : 'none';
     inputTextGroup.style.display = algorithm === 'dh' ? 'none' : 'block';
 
@@ -89,14 +85,13 @@ algorithmSelect.addEventListener('change', function() {
     inputText.required = algorithm !== 'dh' && algorithm !== 'signature';
     affineA.required = algorithm === 'affine';
     affineB.required = algorithm === 'affine';
-    signatureInput.required = false; // 签名验证时动态设置
     rsaD.required = algorithm === 'dh';
     rsaN.required = algorithm === 'dh';
 
     // 设置输入框提示文字
     if (algorithm !== 'dh') {
         inputText.placeholder = algorithm === 'affine' ? '输入明文或密文（仅限字母和空格）'
-            : algorithm === 'sha1' || algorithm === 'signature' ? '输入消息'
+            : algorithm === 'sha1'  ? '输入消息'
             : algorithm ? '输入明文或Base64编码的密文' : '输入文本';
     }
 
@@ -104,11 +99,7 @@ algorithmSelect.addEventListener('change', function() {
     if (algorithm === 'sha1') {
         actionPrimary.textContent = '计算哈希';
         actionSecondary.style.display = 'none';
-    } else if (algorithm === 'signature') {
-        actionPrimary.textContent = '生成签名';
-        actionSecondary.textContent = '验证签名';
-        actionSecondary.style.display = 'block';
-    } else if (algorithm === 'dh') {
+    }  else if (algorithm === 'dh') {
         actionPrimary.textContent = '执行密钥交换';
         actionSecondary.style.display = 'none';
     } else if (algorithm === 'affine') {
@@ -139,7 +130,7 @@ function sendRequest(url, data, isBinaryInput = false, isBinaryOutput = false) {
         data = { ...data, a: parseInt(a), b: parseInt(b) };
     }
 
-    fetch(`http://192.168.3.6:8080${url}`, {
+    fetch(`http://192.168.4.4:8080${url}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -187,7 +178,6 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const algorithm = algorithmSelect.value;
     const input = inputText.value.trim();
-    const signature = signatureInput.value.trim();
     const action = e.submitter.id;
 
     if (!algorithm) {
@@ -202,18 +192,6 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
         return;
     }
 
-    if (algorithm === 'signature' && action === 'action-secondary') {
-        if (!input) {
-            result.innerHTML = '<div class="alert alert-warning">请输入消息</div>';
-            result.classList.remove('d-none');
-            return;
-        }
-        if (!signature) {
-            result.innerHTML = '<div class="alert alert-warning">请输入签名</div>';
-            result.classList.remove('d-none');
-            return;
-        }
-    }
 
     if (algorithm === 'affine') {
         const isValid = /^[A-Za-z\s]*$/.test(input);
@@ -276,14 +254,6 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
             url = '/sha1';
             data = { message: input };
             isBinaryOutput = true;
-            break;
-        case 'signature':
-            url = action === 'action-primary' ? '/rsa/sign' : '/rsa/verify';
-            data = action === 'action-primary'
-                ? { message: input }
-                : { message: input, signature };
-            isBinaryInput = action !== 'action-primary';
-            isBinaryOutput = action === 'action-primary';
             break;
         case 'dh':
             const d = rsaD.value;

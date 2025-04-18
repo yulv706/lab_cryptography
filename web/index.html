@@ -30,7 +30,6 @@
                             <option value="des">DES</option>
                             <option value="rsa">RSA</option>
                             <option value="sha1">SHA-1</option>
-                            <option value="signature">数字签名</option>
                             <option value="dh">D-H 密钥交换</option>
                         </select>
                         <div id="algorithm-description" class="form-text mt-2"></div>
@@ -52,10 +51,6 @@
                                 <div class="form-text">0-25之间的整数</div>
                             </div>
                         </div>
-                    </div>
-                    <div class="mb-4" id="signature-group" style="display: none;">
-                        <label for="signature-input" class="form-label fw-bold">签名（验证时输入）</label>
-                        <textarea class="form-control" id="signature-input" name="signature-input" rows="2"></textarea>
                     </div>
                     <div class="mb-4" id="dh-group" style="display: none;">
                         <label for="rsa-d" class="form-label fw-bold">RSA私钥 d</label>
