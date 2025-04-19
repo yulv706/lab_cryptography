@@ -26,6 +26,8 @@ const actionSecondary = document.getElementById('action-secondary');
 const primarySpinner = document.getElementById('primary-spinner');
 const secondarySpinner = document.getElementById('secondary-spinner');
 const result = document.getElementById('result');
+const keyGroup = document.getElementById('key-group');
+const keyInput = document.getElementById('key-input');
 
 // 主题切换
 const themeToggle = document.getElementById('theme-toggle');
@@ -72,16 +74,21 @@ algorithmSelect.addEventListener('change', function() {
     affineB.value = '';
     rsaD.value = '';
     rsaN.value = '';
+    keyInput.value = '';
     
     // 更新算法描述
     description.textContent = algorithm ? algorithmDescriptions[algorithm] : '';
     
     // 控制参数组显示
+    inputTextGroup.style.display = 1;
     affineGroup.style.display = algorithm === 'affine' ? 'block' : 'none';
     dhGroup.style.display = algorithm === 'dh' ? 'block' : 'none';
     inputTextGroup.style.display = algorithm === 'dh' ? 'none' : 'block';
+    keyGroup.style.display = ['rc4', 'lfsr_jk', 'des'].includes(algorithm) ? 'block' : 'none';
 
     // 动态管理 required 属性
+    const needKey = ['rc4', 'lfsr_jk', 'des'].includes(algorithm);
+    keyInput.required = needKey;
     inputText.required = algorithm !== 'dh' && algorithm !== 'signature';
     affineA.required = algorithm === 'affine';
     affineB.required = algorithm === 'affine';
@@ -130,7 +137,7 @@ function sendRequest(url, data, isBinaryInput = false, isBinaryOutput = false) {
         data = { ...data, a: parseInt(a), b: parseInt(b) };
     }
 
-    fetch(`http://192.168.4.4:8080${url}`, {
+    fetch(`http://192.168.3.4:8080${url}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -179,11 +186,23 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
     const algorithm = algorithmSelect.value;
     const input = inputText.value.trim();
     const action = e.submitter.id;
+    let key; // 新增密钥变量
 
+    // 错误处理部分新增密钥验证
     if (!algorithm) {
         result.innerHTML = '<div class="alert alert-warning">请先选择算法</div>';
         result.classList.remove('d-none');
         return;
+    }
+
+    // 新增密钥必填验证
+    if (['rc4', 'lfsr_jk', 'des'].includes(algorithm)) {
+        key = keyInput.value.trim();
+        if (!key) {
+            result.innerHTML = '<div class="alert alert-warning">请输入密钥</div>';
+            result.classList.remove('d-none');
+            return;
+        }
     }
 
     if (algorithm !== 'dh' && inputText.required && !input) {
@@ -191,7 +210,6 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
         result.classList.remove('d-none');
         return;
     }
-
 
     if (algorithm === 'affine') {
         const isValid = /^[A-Za-z\s]*$/.test(input);
@@ -228,25 +246,36 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
             break;
         case 'rc4':
             url = action === 'action-primary' ? '/rc4/encrypt' : '/rc4/decrypt';
-            data = { [action === 'action-primary' ? 'plaintext' : 'ciphertext']: input };
+            data = { 
+                [action === 'action-primary' ? 'plaintext' : 'ciphertext']: input,
+                key: key  // 新增密钥参数
+            };
             isBinaryInput = action !== 'action-primary';
             isBinaryOutput = true;
             break;
         case 'lfsr_jk':
-            url = action === 'action-primary' ? '/rc4/encrypt' : '/rc4/decrypt';
-            data = { [action === 'action-primary' ? 'plaintext' : 'ciphertext']: input };
+            url = action === 'action-primary' ? '/lfsr_jk/encrypt' : '/lfsr_jk/decrypt';
+            data = { 
+                [action === 'action-primary' ? 'plaintext' : 'ciphertext']: input,
+                key: key  // 新增密钥参数
+            };
             isBinaryInput = action !== 'action-primary';
             isBinaryOutput = true;
             break;
         case 'des':
             url = action === 'action-primary' ? '/des/encrypt' : '/des/decrypt';
-            data = { [action === 'action-primary' ? 'plaintext' : 'ciphertext']: input };
+            data = { 
+                [action === 'action-primary' ? 'plaintext' : 'ciphertext']: input,
+                key: key  // 新增密钥参数
+            };
             isBinaryInput = action !== 'action-primary';
             isBinaryOutput = true;
             break;
         case 'rsa':
             url = action === 'action-primary' ? '/rsa/encrypt' : '/rsa/decrypt';
-            data = { [action === 'action-primary' ? 'plaintext' : 'ciphertext']: input };
+            data = { 
+                [action === 'action-primary' ? 'plaintext' : 'ciphertext']: input 
+            };
             isBinaryInput = action !== 'action-primary';
             isBinaryOutput = true;
             break;

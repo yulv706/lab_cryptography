@@ -34,9 +34,13 @@
                         </select>
                         <div id="algorithm-description" class="form-text mt-2"></div>
                     </div>
-                    <div class="mb-4" id="input-text-group">
+                    <div class="mb-4" id="input-text-group" style="display: none;">
                         <label for="input-text" class="form-label fw-bold">输入（明文/密文/消息）</label>
                         <textarea class="form-control" id="input-text" name="input-text" rows="4"></textarea>
+                    </div>
+                    <div class="mb-4" id="key-group" style="display: none;">
+                        <label for="key-input" class="form-label fw-bold">密钥</label>
+                        <input type="text" class="form-control" id="key-input" name="key-input">
                     </div>
                     <div class="mb-4" id="affine-group" style="display: none;">
                         <div class="row">

@@ -8,12 +8,14 @@
 
 using namespace tinyxml2;
 
+// 配置结构体，用于存储加密算法的参数
 struct Config {
     int affine_a, affine_b;
     std::string rc4_key, des_key;
     unsigned int lfsr_seed;
 };
 
+// 从 config.xml 文件加载配置
 bool load_config(Config& config) {
     XMLDocument doc;
     if (doc.LoadFile("config.xml") != XML_SUCCESS) {
@@ -25,9 +27,27 @@ bool load_config(Config& config) {
     config.rc4_key = root->FirstChildElement("rc4_key")->GetText();
     config.des_key = root->FirstChildElement("des_key")->GetText();
     config.lfsr_seed = atoi(root->FirstChildElement("lfsr_seed")->GetText());
+     if (XMLElement* rc4_key = root->FirstChildElement("rc4_key")) {
+        config.rc4_key = rc4_key->GetText();
+    } else {
+        config.rc4_key = "default_rc4";  // 默认 RC4 密钥
+    }
+
+    if (XMLElement* des_key = root->FirstChildElement("des_key")) {
+        config.des_key = des_key->GetText();
+    } else {
+        config.des_key = "default_des";  // 默认 DES 密钥
+    }
+
+    if (XMLElement* lfsr_seed = root->FirstChildElement("lfsr_seed")) {
+        config.lfsr_seed = atoi(lfsr_seed->GetText());
+    } else {
+        config.lfsr_seed = 12345;  // 默认种子
+    }
     return true;
 }
 
+// 为 HTTP 响应添加 CORS 头
 void add_cors_headers(crow::response& res) {
     CROW_LOG_DEBUG << "Adding CORS headers to response";
     res.set_header("Access-Control-Allow-Origin", "*");
@@ -35,6 +55,7 @@ void add_cors_headers(crow::response& res) {
     res.set_header("Access-Control-Allow-Headers", "Content-Type, Accept");
 }
 
+// 更新仿射加密的配置参数并保存到 config.xml
 bool update_affine_config(int a, int b) {
     XMLDocument doc;
     if (doc.LoadFile("config.xml") != XML_SUCCESS) {
@@ -56,6 +77,7 @@ bool update_affine_config(int a, int b) {
 
     XMLElement* root = doc.RootElement();
     
+    // 更新 affine_a 参数
     XMLElement* affine_a = root->FirstChildElement("affine_a");
     if (!affine_a) {
         affine_a = doc.NewElement("affine_a");
@@ -63,6 +85,7 @@ bool update_affine_config(int a, int b) {
     }
     affine_a->SetText(a);
 
+    // 更新 affine_b 参数
     XMLElement* affine_b = root->FirstChildElement("affine_b");
     if (!affine_b) {
         affine_b = doc.NewElement("affine_b");
@@ -80,6 +103,7 @@ bool update_affine_config(int a, int b) {
     return doc.SaveFile("config.xml") == XML_SUCCESS;
 }
 
+// 验证参数 a 是否与 26 互质
 bool is_valid_a(int a) {
     if (a <= 0 || a >= 26) return false;
     int gcd = 26;
@@ -91,6 +115,56 @@ bool is_valid_a(int a) {
     }
     return gcd == 1;
 }
+// 新增配置更新函数
+bool update_rc4_config(const std::string& key) {
+    XMLDocument doc;
+    if (doc.LoadFile("config.xml") != XML_SUCCESS) {
+        XMLElement* root = doc.NewElement("config");
+        doc.InsertFirstChild(root);
+    }
+    
+    XMLElement* root = doc.RootElement();
+    XMLElement* rc4_key = root->FirstChildElement("rc4_key");
+    if (!rc4_key) {
+        rc4_key = doc.NewElement("rc4_key");
+        root->InsertEndChild(rc4_key);
+    }
+    rc4_key->SetText(key.c_str());
+    return doc.SaveFile("config.xml") == XML_SUCCESS;
+}
+bool update_des_config(const std::string& key) {
+    XMLDocument doc;
+    if (doc.LoadFile("config.xml") != XML_SUCCESS) {
+        XMLElement* root = doc.NewElement("config");
+        doc.InsertFirstChild(root);
+    }
+    
+    XMLElement* root = doc.RootElement();
+    XMLElement* des_key = root->FirstChildElement("des_key");
+    if (!des_key) {
+        des_key = doc.NewElement("des_key");
+        root->InsertEndChild(des_key);
+    }
+    des_key->SetText(key.c_str());
+    return doc.SaveFile("config.xml") == XML_SUCCESS;
+}
+bool update_lfsr_config(const std::string& seed_str) {
+    XMLDocument doc;
+    if (doc.LoadFile("config.xml") != XML_SUCCESS) {
+        XMLElement* root = doc.NewElement("config");
+        doc.InsertFirstChild(root);
+    }
+    
+    XMLElement* root = doc.RootElement();
+    XMLElement* lfsr_seed = root->FirstChildElement("lfsr_seed");
+    if (!lfsr_seed) {
+        lfsr_seed = doc.NewElement("lfsr_seed");
+        root->InsertEndChild(lfsr_seed);
+    }
+    lfsr_seed->SetText(seed_str.c_str());
+    return doc.SaveFile("config.xml") == XML_SUCCESS;
+}
+
 
 int main() {
     crow::App<crow::CORSHandler> app;
@@ -254,6 +328,21 @@ int main() {
                 res.body = crow::json::wvalue{{"error", "明文不能为空"}}.dump();
                 return res;
             }
+            if (!params.has("key")) {
+                res.code = 400;
+                res.body = crow::json::wvalue{{"error", "缺少密钥参数"}}.dump();
+                return res;
+            }
+            std::string key = params["key"].s();
+            if (key.empty()) {
+                res.code = 400;
+                res.body = crow::json::wvalue{{"error", "密钥不能为空"}}.dump();
+                return res;
+            }
+            config.rc4_key = key;
+            if (!update_rc4_config(key)) {
+                CROW_LOG_WARNING << "RC4 密钥更新失败";
+            }
             std::string ciphertext = rc4_encrypt(plaintext, config.rc4_key);
             std::string encoded_ciphertext;
             CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(encoded_ciphertext));
@@ -311,42 +400,101 @@ int main() {
         }
     });
 
-    CROW_ROUTE(app, "/lfsr_jk/encrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
-        crow::response res;
-        add_cors_headers(res);
-        try {
-            CROW_LOG_INFO << "Received /lfsr_jk/encrypt request: " << req.body;
-            auto params = crow::json::load(req.body);
-            if (!params) {
-                res.code = 400;
-                res.body = crow::json::wvalue{{"error", "无效的 JSON 格式"}}.dump();
-                return res;
-            }
-            if (!params.has("plaintext")) {
-                res.code = 400;
-                res.body = crow::json::wvalue{{"error", "缺少明文参数"}}.dump();
-                return res;
-            }
-            std::string plaintext = params["plaintext"].s();
-            if (plaintext.empty()) {
-                res.code = 400;
-                res.body = crow::json::wvalue{{"error", "明文不能为空"}}.dump();
-                return res;
-            }
-            std::string ciphertext = lfsr_jk_encrypt(plaintext, config.lfsr_seed);
-            std::string encoded_ciphertext;
-            CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(encoded_ciphertext));
-            encoder.Put((const CryptoPP::byte*)ciphertext.data(), ciphertext.size());
-            encoder.MessageEnd();
-            res.body = crow::json::wvalue{{"ciphertext", encoded_ciphertext}}.dump();
-            return res;
-        } catch (const std::exception& e) {
-            CROW_LOG_ERROR << "Error in /lfsr_jk/encrypt: " << e.what();
-            res.code = 500;
-            res.body = crow::json::wvalue{{"error", "服务器内部错误: " + std::string(e.what())}}.dump();
+CROW_ROUTE(app, "/lfsr_jk/encrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
+    crow::response res;
+    add_cors_headers(res);
+    
+    try {
+        CROW_LOG_INFO << "[LFSR] 收到加密请求，请求体大小: " << req.body.size() << " 字节";
+        const auto& params = crow::json::load(req.body);
+
+        // 参数基础验证
+        if (!params) {
+            CROW_LOG_WARNING << "[LFSR] 无效的 JSON 格式";
+            res.code = 400;
+            res.body = crow::json::wvalue{{"error", "无效的 JSON 格式"}}.dump();
             return res;
         }
-    });
+
+        // 必需参数检查
+        std::vector<std::string> required_params = {"plaintext", "key"};
+        for (const auto& param : required_params) {
+            if (!params.has(param)) {
+                CROW_LOG_WARNING << "[LFSR] 缺少必要参数: " << param;
+                res.code = 400;
+                res.body = crow::json::wvalue{{"error", "缺少参数: " + param}}.dump();
+                return res;
+            }
+        }
+
+        // 获取并验证明文
+        const std::string plaintext = params["plaintext"].s();
+        if (plaintext.empty()) {
+            CROW_LOG_WARNING << "[LFSR] 明文内容为空";
+            res.code = 400;
+            res.body = crow::json::wvalue{{"error", "明文不能为空"}}.dump();
+            return res;
+        }
+
+        // 获取并验证种子
+        const std::string seed_str = params["key"].s();
+        if (seed_str.empty()) {
+            CROW_LOG_WARNING << "[LFSR] 种子参数为空";
+            res.code = 400;
+            res.body = crow::json::wvalue{{"error", "种子不能为空"}}.dump();
+            return res;
+        }
+
+        // 种子格式转换
+        unsigned seed = 0;
+        try {
+            seed = std::stoul(seed_str);
+            if (seed > UINT_MAX) {
+                throw std::out_of_range("种子值超出范围");
+            }
+        } catch (const std::invalid_argument&) {
+            CROW_LOG_WARNING << "[LFSR] 无效的种子格式: " << seed_str;
+            res.code = 400;
+            res.body = crow::json::wvalue{{"error", "无效的种子格式，需为无符号整数"}}.dump();
+            return res;
+        } catch (const std::out_of_range&) {
+            CROW_LOG_WARNING << "[LFSR] 种子值超出范围: " << seed_str;
+            res.code = 400;
+            res.body = crow::json::wvalue{{"error", "种子值超出允许范围 (0-" + std::to_string(UINT_MAX) + ")"}}.dump();
+            return res;
+        }
+
+        // 更新配置
+        CROW_LOG_DEBUG << "[LFSR] 更新 LFSR 种子: " << seed;
+        config.lfsr_seed = seed;
+        if (!update_lfsr_config(std::to_string(seed))) {
+            CROW_LOG_ERROR << "[LFSR] 配置文件更新失败，种子: " << seed;
+        }
+
+        // 执行加密
+        CROW_LOG_DEBUG << "[LFSR] 开始加密，明文长度: " << plaintext.length();
+        const std::string ciphertext = lfsr_jk_encrypt(plaintext, seed);
+        
+        // Base64 编码
+        std::string encoded_ciphertext;
+        CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(encoded_ciphertext));
+        encoder.Put(reinterpret_cast<const CryptoPP::byte*>(ciphertext.data()), ciphertext.size());
+        encoder.MessageEnd();
+
+        CROW_LOG_INFO << "[LFSR] 加密成功，密文长度: " << encoded_ciphertext.length();
+        res.body = crow::json::wvalue{{"ciphertext", encoded_ciphertext}}.dump();
+        return res;
+
+    } catch (const std::exception& e) {
+        CROW_LOG_ERROR << "[LFSR] 系统异常: " << typeid(e).name() << " - " << e.what();
+        res.code = 500;
+        res.body = crow::json::wvalue{
+            {"error", "服务器内部错误"},
+            {"details", e.what()}
+        }.dump();
+        return res;
+    }
+});
 
     CROW_ROUTE(app, "/lfsr_jk/decrypt").methods(crow::HTTPMethod::POST)([&config](const crow::request& req) {
         crow::response res;
@@ -411,6 +559,21 @@ int main() {
                 res.code = 400;
                 res.body = crow::json::wvalue{{"error", "明文不能为空"}}.dump();
                 return res;
+            }
+            if (!params.has("key")) {
+                res.code = 400;
+                res.body = crow::json::wvalue{{"error", "缺少密钥参数"}}.dump();
+                return res;
+            }
+            std::string key = params["key"].s();
+            if (key.empty()) {
+                res.code = 400;
+                res.body = crow::json::wvalue{{"error", "DES 密钥不能为空"}}.dump();
+                return res;
+            }
+            config.des_key = key;
+            if (!update_des_config(key)) {
+                CROW_LOG_WARNING << "DES 密钥更新失败";
             }
             std::string ciphertext = des_encrypt(plaintext, config.des_key);
             std::string encoded_ciphertext;
