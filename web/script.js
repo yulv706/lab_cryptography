@@ -5,8 +5,6 @@ const algorithmDescriptions = {
     lfsr_jk: "LFSR + J-K 触发器：自定义流密码，结合线性反馈移位寄存器和触发器，输出为二进制。",
     des: "DES：对称块密码，使用 8 字节密钥，ECB 模式，输出为二进制 (显示为 Base64)。",
     rsa: "RSA：非对称加密，基于大整数分解，公钥加密/私钥解密，输出为二进制。",
-    sha1: "SHA-1：哈希算法，生成 160 位摘要，输出为二进制 (显示为 Base64)。",
-    signature: "数字签名：使用 RSA 签名 SHA-1 哈希，确保消息完整性和来源，签名输出为 Base64。",
     dh: "D-H 密钥交换：使用RSA私钥加密DH公钥并签名，协商共享密钥。请填写正确的RSA私钥来验证你的身份!(d=8743,n=10403)  如果你是你,会协商出密钥s"
 };
 
@@ -98,15 +96,11 @@ algorithmSelect.addEventListener('change', function() {
     // 设置输入框提示文字
     if (algorithm !== 'dh') {
         inputText.placeholder = algorithm === 'affine' ? '输入明文或密文（仅限字母和空格）'
-            : algorithm === 'sha1'  ? '输入消息'
             : algorithm ? '输入明文或Base64编码的密文' : '输入文本';
     }
 
     // 更新操作按钮
-    if (algorithm === 'sha1') {
-        actionPrimary.textContent = '计算哈希';
-        actionSecondary.style.display = 'none';
-    }  else if (algorithm === 'dh') {
+    if (algorithm === 'dh') {
         actionPrimary.textContent = '执行密钥交换';
         actionSecondary.style.display = 'none';
     } else if (algorithm === 'affine') {
@@ -137,7 +131,7 @@ function sendRequest(url, data, isBinaryInput = false, isBinaryOutput = false) {
         data = { ...data, a: parseInt(a), b: parseInt(b) };
     }
 
-    fetch(`http://192.168.3.4:8080${url}`, {
+    fetch(`http://192.168.4.4:8080${url}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -277,11 +271,6 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
                 [action === 'action-primary' ? 'plaintext' : 'ciphertext']: input 
             };
             isBinaryInput = action !== 'action-primary';
-            isBinaryOutput = true;
-            break;
-        case 'sha1':
-            url = '/sha1';
-            data = { message: input };
             isBinaryOutput = true;
             break;
         case 'dh':

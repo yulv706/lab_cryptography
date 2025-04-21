@@ -1,16 +1,6 @@
-关于DH：
-前端需要有一份自己的RSA私钥a，公钥A，并且后端知道A
-DH不需要传消息，只需要公钥就行了，而这个公钥不是直接传，而是传 `RSA_a(B)||md5(RSA_a(B))`
-后端就用提前知道的公钥A，然后去解密RSA_a(B)出来
-然后做完整性验证
-然后用B协商出密钥s
-之后展示密钥s
-
-
-
 # CryptoService
 
-CryptoService 是一个前后端分离的密码学服务系统，提供基于 Web 的界面，支持多种加密、解密、哈希和密钥交换算法，包括仿射密码、RC4、LFSR + J-K 触发器、DES、RSA、SHA-1、RSA 数字签名和 Diffie-Hellman 密钥交换。后端使用 C++ 和 Crow 框架开发，前端使用 HTML、CSS 和 JavaScript，并基于 Bootstrap 构建。
+CryptoService 是一个前后端分离的密码学服务系统，提供基于 Web 的界面，支持多种加密、解密、哈希和密钥交换算法，包括仿射密码、RC4、LFSR + J-K 触发器、DES、RSA和 Diffie-Hellman 密钥交换。后端使用 C++ 和 Crow 框架开发，前端使用 HTML、CSS 和 JavaScript，并基于 Bootstrap 构建。
 
 ## 项目结构
 
@@ -80,7 +70,7 @@ sudo make install
 
 ### 3. 克隆项目仓库
 
-克隆 CryptoService 仓库（假设托管在 GitHub 等平台）：
+克隆 CryptoService 仓库：
 
 ```bash
 git clone <repository-url>
@@ -141,7 +131,7 @@ cd web
 python3 no_cache_server.py
 ```
 no_cache_server.py是无缓存，为了好测试
-注意，需要修改web/script.js中后端地址（修改为自己的虚拟机地址）
+**注意，需要修改web/script.js中后端地址（修改为自己的虚拟机地址）**
 
 
 ### 3. 访问 Web 界面
@@ -170,60 +160,27 @@ http://<ip>:8000
 ```bash
 curl -X POST http://127.0.0.1:8080/affine/encrypt \
 -H "Content-Type: application/json" \
--d '{"plaintext": "HELLO"}'
+-d '{"plaintext":"KONGYU","a":3,"b":2}'
 ```
 
 响应：
 
 ```json
-{"ciphertext": "AFCCX"}
+{"ciphertext": "GSPUWK"}
 ```
 
-#### 计算 SHA-1 哈希
-
-```bash
-curl -X POST http://127.0.0.1:8080/sha1 \
--H "Content-Type: application/json" \
--d '{"message": "Hello, World!"}'
-```
-
-响应（哈希以 Base64 编码显示）：
-
-```json
-{"hash": "iB3usv1oZ7f3fJhBl13hJ7KzZly"}
-```
-
-#### Diffie-Hellman 密钥交换
-
-```bash
-curl -X POST http://127.0.0.1:8080/dh \
--H "Content-Type: application/json" \
--d '{"role": "server", "message": "Hello"}'
-```
-
-响应：
-
-```json
-{
-  "shared_key": 749,
-  "message": "Hello",
-  "signature": "base64-encoded-signature",
-  "verified": true
-}
-```
 
 ### 5. 输入输出说明
 
 - **仿射密码**：仅处理字母 (A-Z)，非字母字符保持不变。
 - **二进制输出**：RC4、DES、RSA 和 LFSR 等算法产生二进制输出，在 Web 界面中以 Base64 编码显示。
-- **数字签名**：使用 `/rsa/sign` 生成签名，`/rsa/verify` 验证签名。
 - **错误处理**：无效的 JSON、空的输入或格式错误会返回 400 状态码和错误信息。
 
 ## 故障排除
 
 - **后端服务器无法启动**：检查 `build` 目录中的 `config.xml` 是否存在，且依赖库是否正确安装。
-- **前端无法加载**：确保在 `web` 目录中运行了 `python3 -m http.server 8000`，并检查浏览器控制台是否有错误。
-- **CORS 问题**：后端已配置 CORS 头，允许跨域请求。确保前端请求正确指向 `http://127.0.0.1:8080`。
+- **前端无法加载**：确保在 `web` 目录中运行了 `python3 -m http.server 8000`或者`python3 no_cache_server.py`，并检查浏览器控制台是否有错误。
+- **CORS 问题**：后端已配置 CORS 头，允许跨域请求。确保前端请求正确指向 `http://<虚拟机ip>:8080`。
 - **库文件未找到**：确认 `libcryptopp`、`libtinyxml2` 和 Boost 库位于 `/usr/lib`，或更新 `LD_LIBRARY_PATH`。
 - **端口冲突**：若 8080 或 8000 端口被占用，可修改 `CryptoService.cpp`（后端端口）或 Python 服务器命令（前端端口），然后重新构建。
 
@@ -232,17 +189,3 @@ curl -X POST http://127.0.0.1:8080/dh \
 - **非生产环境**：此实现使用简化的密码学参数（如小型 RSA 密钥），仅用于教育目的，切勿在生产环境中使用。
 - **密钥管理**：`config.xml` 中硬编码的密钥不安全。实际应用中应使用安全的密钥存储机制。
 - **弱算法**：RC4 和 DES 因已知漏洞在安全应用中已被弃用。
-
-## 贡献
-
-欢迎贡献代码！贡献步骤如下：
-
-1. Fork 仓库。
-2. 创建特性分支（`git checkout -b feature/new-feature`）。
-3. 提交更改（`git commit -m "添加新功能"`）。
-4. 推送分支（`git push origin feature/new-feature`）。
-5. 提交 Pull Request。
-
-## 许可证
-
-本项目采用 MIT 许可证，详情见仓库中的 `LICENSE` 文件（若存在）。

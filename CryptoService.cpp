@@ -711,43 +711,6 @@ CROW_ROUTE(app, "/lfsr_jk/encrypt").methods(crow::HTTPMethod::POST)([&config](co
         }
     });
 
-    CROW_ROUTE(app, "/sha1").methods(crow::HTTPMethod::POST)([](const crow::request& req) {
-        crow::response res;
-        add_cors_headers(res);
-        try {
-            CROW_LOG_INFO << "Received /sha1 request: " << req.body;
-            auto params = crow::json::load(req.body);
-            if (!params) {
-                res.code = 400;
-                res.body = crow::json::wvalue{{"error", "无效的 JSON 格式"}}.dump();
-                return res;
-            }
-            if (!params.has("message")) {
-                res.code = 400;
-                res.body = crow::json::wvalue{{"error", "缺少消息参数"}}.dump();
-                return res;
-            }
-            std::string message = params["message"].s();
-            if (message.empty()) {
-                res.code = 400;
-                res.body = crow::json::wvalue{{"error", "消息不能为空"}}.dump();
-                return res;
-            }
-            std::string hash = compute_sha1(message);
-            std::string encoded_hash;
-            CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(encoded_hash));
-            encoder.Put((const CryptoPP::byte*)hash.data(), hash.size());
-            encoder.MessageEnd();
-            res.body = crow::json::wvalue{{"hash", encoded_hash}}.dump();
-            return res;
-        } catch (const std::exception& e) {
-            CROW_LOG_ERROR << "Error in /sha1: " << e.what();
-            res.code = 500;
-            res.body = crow::json::wvalue{{"error", "服务器内部错误: " + std::string(e.what())}}.dump();
-            return res;
-        }
-    });
-
     
     CROW_ROUTE(app, "/dh").methods(crow::HTTPMethod::POST)([e_rsa, n_rsa](const crow::request& req) {
         crow::response res;

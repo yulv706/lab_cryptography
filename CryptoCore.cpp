@@ -214,8 +214,8 @@ void rsa_generate_keys(int& p, int& q, int& e, int& d, int& n) {
 std::string rsa_encrypt(const std::string& plaintext, int e, int n) {
     std::string ciphertext;
     for (char c : plaintext) {
-        int m = static_cast<unsigned char>(c);
-        int c_val = mod_exp(m, e, n);
+        int m = static_cast<unsigned char>(c);//m只能为0~255
+        int c_val = mod_exp(m, e, n);//n小于16位，那么c_val一定小于16位（2字节）
         ciphertext += (char)(c_val >> 8);
         ciphertext += (char)(c_val & 0xFF);
     }
