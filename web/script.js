@@ -69,13 +69,76 @@ const result = document.getElementById('result');
 const keyGroup = document.getElementById('key-group');
 const keyInput = document.getElementById('key-input');
 
+// 添加密码学图标动画
+function addCryptoIcons() {
+    const icons = [
+        'fa-lock', 'fa-unlock', 'fa-key', 'fa-shield-alt', 
+        'fa-fingerprint', 'fa-user-secret', 'fa-code'
+    ];
+    
+    // 创建随机浮动的图标
+    for (let i = 0; i < 3; i++) {
+        const icon = document.createElement('div');
+        icon.className = 'crypto-icon';
+        icon.style.position = 'absolute';
+        icon.style.opacity = '0.03';
+        icon.style.zIndex = '0';
+        icon.style.fontSize = Math.floor(Math.random() * 3 + 3) + 'rem';
+        icon.style.top = Math.floor(Math.random() * 80 + 10) + '%';
+        icon.style.left = Math.floor(Math.random() * 80 + 10) + '%';
+        icon.style.transform = `rotate(${Math.floor(Math.random() * 60 - 30)}deg)`;
+        icon.style.animation = `float ${Math.floor(Math.random() * 4 + 4)}s ease-in-out infinite`;
+        icon.style.animationDelay = `${Math.random() * 2}s`;
+        
+        const iconElement = document.createElement('i');
+        iconElement.className = `fas ${icons[Math.floor(Math.random() * icons.length)]}`;
+        icon.appendChild(iconElement);
+        
+        document.body.appendChild(icon);
+    }
+}
+
+// 页面加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    addCryptoIcons();
+    
+    // 检查本地存储中的主题设置
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+    }
+    
+    // 添加表单元素的进入动画
+    const formGroups = document.querySelectorAll('.form-group-enhanced');
+    formGroups.forEach((group, index) => {
+        group.style.opacity = '0';
+        group.style.transform = 'translateY(20px)';
+        group.style.transition = 'all 0.4s ease';
+        
+        setTimeout(() => {
+            group.style.opacity = '1';
+            group.style.transform = 'translateY(0)';
+        }, 100 * (index + 1));
+    });
+});
+
 // 主题切换
 const themeToggle = document.getElementById('theme-toggle');
 themeToggle.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
-    themeToggle.innerHTML = document.body.classList.contains('dark-mode')
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    themeToggle.innerHTML = isDarkMode
         ? '<i class="fas fa-sun"></i>'
         : '<i class="fas fa-moon"></i>';
+    
+    // 保存主题设置到本地存储
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    
+    // 添加切换动画效果
+    document.querySelectorAll('.card, .form-control, .form-select, .btn').forEach(el => {
+        el.style.transition = 'all 0.5s ease';
+    });
 });
 
 // 模幂运算
@@ -115,6 +178,15 @@ algorithmSelect.addEventListener('change', function() {
     rsaD.value = '';
     rsaN.value = '';
     keyInput.value = '';
+    
+    // 添加选择算法的动画效果
+    if (algorithm) {
+        const card = document.querySelector('.card');
+        card.style.transform = 'scale(1.02)';
+        setTimeout(() => {
+            card.style.transform = '';
+        }, 300);
+    }
     
     // 更新算法描述
     if (algorithm) {
@@ -222,8 +294,40 @@ function resetButtons() {
     actionSecondary.disabled = false;
 }
 
+// 添加表单提交的波纹效果
+function createRipple(event) {
+    const button = event.currentTarget;
+    
+    const circle = document.createElement('span');
+    const diameter = Math.max(button.clientWidth, button.clientHeight);
+    const radius = diameter / 2;
+    
+    circle.style.width = circle.style.height = `${diameter}px`;
+    circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
+    circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
+    circle.classList.add('ripple');
+    
+    const ripple = button.querySelector('.ripple');
+    if (ripple) {
+        ripple.remove();
+    }
+    
+    button.appendChild(circle);
+}
+
+// 为按钮添加波纹效果
+document.querySelectorAll('.btn').forEach(button => {
+    button.addEventListener('click', createRipple);
+});
+
 // 表单提交
 document.getElementById('crypto-form').addEventListener('submit', function(e) {
+    // 添加表单提交的动画效果
+    const card = document.querySelector('.card');
+    card.classList.add('submitting');
+    setTimeout(() => {
+        card.classList.remove('submitting');
+    }, 300);
     e.preventDefault();
     const algorithm = algorithmSelect.value;
     const input = inputText.value.trim();
@@ -344,3 +448,49 @@ document.getElementById('crypto-form').addEventListener('submit', function(e) {
 
     sendRequest(url, data, isBinaryInput, isBinaryOutput);
 });
+
+// 添加结果显示的动画效果
+const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        if (mutation.target.id === 'result' && !mutation.target.classList.contains('d-none')) {
+            const resultElement = mutation.target;
+            resultElement.style.opacity = '0';
+            resultElement.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                resultElement.style.transition = 'all 0.5s ease';
+                resultElement.style.opacity = '1';
+                resultElement.style.transform = 'translateY(0)';
+            }, 100);
+        }
+    });
+});
+
+observer.observe(result, { attributes: true, attributeFilter: ['class'] });
+
+// 添加CSS样式
+const style = document.createElement('style');
+style.textContent = `
+    .submitting {
+        transform: scale(0.98) !important;
+        opacity: 0.95;
+        transition: all 0.3s ease !important;
+    }
+    
+    .ripple {
+        position: absolute;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.4);
+        transform: scale(0);
+        animation: ripple-animation 0.6s linear;
+        pointer-events: none;
+    }
+    
+    @keyframes ripple-animation {
+        to {
+            transform: scale(4);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
