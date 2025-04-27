@@ -89,6 +89,25 @@ body.dark-mode {
     color: #e2e8f0;
 }
 
+#algorithm-description {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    max-height: 400px;
+    overflow-y: auto;
+    transition: all 0.3s ease;
+    border-left: 4px solid #007bff;
+}
+
+.dark-mode #algorithm-description {
+    background-color: #2d3748 !important;
+    color: #e2e8f0;
+    border-left: 4px solid #00aaff;
+}
+
+#algorithm-description:empty {
+    display: none;
+}
+
 .form-text {
     color: #6c757d;
     font-size: 0.9rem;
